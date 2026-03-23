@@ -12,7 +12,7 @@
 ![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?style=for-the-badge&logo=docker&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)
 
-**[Live Demo](https://huggingface.co/spaces/PriyankaAhirwar15/finagent-ai) • [API Docs](http://localhost:8000/docs) • [Report Bug](https://github.com/PriyankaAhirwar15/FinAgent-AI_project/issues)**
+[🚀 Live Demo](https://huggingface.co/spaces/PRIYANKAAhirwar/FinAgent-AI) • [📖 API Docs](https://huggingface.co/spaces/PRIYANKAAhirwar/FinAgent-AI) • [🐛 Report Bug](https://github.com/PriyankaAhirwar15/FinAgent-AI_project/issues)**
 
 </div>
 
