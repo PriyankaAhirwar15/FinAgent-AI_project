@@ -1,0 +1,11 @@
+﻿venv/
+.env
+__pycache__/
+*.pyc
+*.pth
+reports/generated/
+.vscode/
+*.log
+.pytest_cache/
+dist/
+build/

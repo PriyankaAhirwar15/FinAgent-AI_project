@@ -1,0 +1,16 @@
+﻿version: '3.8'
+services:
+  finagent:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    ports:
+      - '8000:8000'
+      - '8501:8501'
+    environment:
+      - GROQ_API_KEY=
+      - TAVILY_API_KEY=
+      - PYTHONPATH=/app
+    volumes:
+      - ../reports:/app/reports
+    restart: unless-stopped
