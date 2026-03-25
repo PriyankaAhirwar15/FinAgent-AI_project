@@ -3,7 +3,7 @@ import requests
 import plotly.graph_objects as go
 import plotly.express as px
 import json
-API_URL = "http://localhost:8000"
+API_URL = "https://finagent-api-upgrade.onrender.com"
 st.set_page_config(
     page_title="FinAgent AI",
     page_icon="💰",
