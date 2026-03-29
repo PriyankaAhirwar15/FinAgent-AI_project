@@ -230,8 +230,4 @@ MIT License — Copyright © 2026 Priyanka Ashok Ahirwar
 </div>
 ```
 
----
 
-**→ Step 3: After pasting — scroll down and click**
-```
-[ Commit changes ]
