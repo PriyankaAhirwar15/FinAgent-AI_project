@@ -1,16 +1,33 @@
 ﻿version: '3.8'
+
 services:
   finagent:
     build:
       context: ..
       dockerfile: docker/Dockerfile
+
     ports:
-      - '8000:8000'
-      - '8501:8501'
+      - "8000:8000"
+      - "8501:8501"
+
+    # Load API keys from .env file automatically
+    env_file:
+      - ../.env
+
     environment:
-      - GROQ_API_KEY=
-      - TAVILY_API_KEY=
       - PYTHONPATH=/app
+      - ENVIRONMENT=production
+
     volumes:
       - ../reports:/app/reports
+
+    # Always restart unless manually stopped
     restart: unless-stopped
+
+    # Health check so Docker knows when backend is truly ready
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
