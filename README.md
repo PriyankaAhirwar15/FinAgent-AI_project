@@ -1,3 +1,16 @@
+---
+title: FinAgent AI
+emoji: 💰
+colorFrom: blue
+colorTo: green
+sdk: streamlit
+sdk_version: 1.35.0
+app_file: frontend/app.py
+pinned: true
+license: mit
+python_version: "3.10"
+---
+
 # 💰 FinAgent AI — Autonomous Multi-Agent Stock Market Intelligence
 
 <div align="center">
