@@ -1,8 +1,7 @@
-﻿from langchain_groq import ChatGroq
 from core.state import AgentState
-from config import GROQ_API_KEY, MODEL_NAME
-import re
-llm = ChatGroq(api_key=GROQ_API_KEY, model=MODEL_NAME)
+from config import safe_llm_invoke
+
+
 def supervisor_node(state: AgentState) -> AgentState:
     query = state.get("query", "")
     stocks = state.get("stocks", [])
@@ -12,7 +11,11 @@ Stocks to analyze: {stocks}
 Your job is to confirm the analysis plan.
 Respond with: PROCEED_WITH_ANALYSIS
 Keep response brief."""
-    response = llm.invoke(prompt)
+    try:
+        response = safe_llm_invoke(prompt)
+    except Exception:
+        pass
+
     return {
         "messages": [f"Supervisor: Analysis started for {stocks}"],
         "current_agent": "supervisor",

@@ -1,264 +1,397 @@
-﻿import streamlit as st
+import streamlit as st
 import requests
 import plotly.graph_objects as go
 import plotly.express as px
 import json
+import os
 import threading
 
-# Backend API URL hosted on Render
-API_URL = "https://finagent-api-upgrade.onrender.com"
+# ─────────────────────────────────────────────
+# Backend API URL (configurable via env var or default)
+# ─────────────────────────────────────────────
+API_URL = os.getenv("API_URL", "https://finagent-api-upgrade.onrender.com").rstrip("/")
 
 # ─────────────────────────────────────────────
 # Wake up backend silently when page loads
-# This prevents cold start delay for the user
 # ─────────────────────────────────────────────
 def wake_backend():
     try:
-        requests.get(f"{API_URL}/health", timeout=30)
-    except:
+        requests.get(f"{API_URL}/health", timeout=15)
+    except Exception:
         pass
 
-# Start background thread to ping backend immediately on page load
 threading.Thread(target=wake_backend, daemon=True).start()
 
 # ─────────────────────────────────────────────
 # Page configuration
 # ─────────────────────────────────────────────
 st.set_page_config(
-    page_title="FinAgent AI",
+    page_title="FinAgent AI — Multi-Agent Market Intelligence",
     page_icon="💰",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
 # ─────────────────────────────────────────────
-# Custom CSS styling
+# Enhanced UI/UX Custom Styling
 # ─────────────────────────────────────────────
 st.markdown("""
 <style>
-    .main-header {
-        font-size: 3rem;
-        font-weight: bold;
-        text-align: center;
-        color: #00D4FF;
-        margin-bottom: 0.5rem;
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+    
+    * {
+        font-family: 'Plus Jakarta Sans', sans-serif;
     }
-    .sub-header {
-        font-size: 1.2rem;
+    
+    .hero-container {
         text-align: center;
-        color: #888;
+        padding: 1.5rem 0 2rem 0;
+        background: linear-gradient(180deg, rgba(0, 212, 255, 0.05) 0%, rgba(0,0,0,0) 100%);
+        border-radius: 16px;
         margin-bottom: 2rem;
     }
-    .metric-card {
-        background: #1E1E2E;
-        padding: 1rem;
-        border-radius: 10px;
-        border: 1px solid #333;
-        margin: 0.5rem 0;
+    
+    .hero-title {
+        font-size: 2.75rem;
+        font-weight: 800;
+        background: linear-gradient(135deg, #00D4FF 0%, #7928CA 50%, #FF0080 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        margin-bottom: 0.5rem;
+        letter-spacing: -0.5px;
     }
-    .positive { color: #00FF88; }
-    .negative { color: #FF4444; }
-    .neutral  { color: #FFD700; }
+    
+    .hero-subtitle {
+        font-size: 1.1rem;
+        color: #94A3B8;
+        max-width: 650px;
+        margin: 0 auto;
+        font-weight: 400;
+    }
+    
+    .metric-card {
+        background: rgba(30, 41, 59, 0.7);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 14px;
+        padding: 1.25rem;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+        transition: transform 0.2s ease, border-color 0.2s ease;
+    }
+    .metric-card:hover {
+        transform: translateY(-2px);
+        border-color: rgba(0, 212, 255, 0.3);
+    }
+    .metric-ticker {
+        font-size: 1.1rem;
+        font-weight: 700;
+        color: #F8FAFC;
+        margin: 0;
+    }
+    .metric-company {
+        font-size: 0.8rem;
+        color: #94A3B8;
+        margin-bottom: 0.5rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .metric-price {
+        font-size: 1.75rem;
+        font-weight: 800;
+        color: #FFFFFF;
+        margin: 0.25rem 0;
+    }
+    .positive { color: #10B981; font-weight: 600; font-size: 0.95rem; }
+    .negative { color: #EF4444; font-weight: 600; font-size: 0.95rem; }
+    .neutral  { color: #F59E0B; font-weight: 600; font-size: 0.95rem; }
+    
+    .agent-pill {
+        display: inline-block;
+        padding: 0.25rem 0.6rem;
+        border-radius: 9999px;
+        background: rgba(0, 212, 255, 0.1);
+        color: #00D4FF;
+        font-size: 0.75rem;
+        font-weight: 600;
+        margin-right: 0.4rem;
+        margin-bottom: 0.4rem;
+        border: 1px solid rgba(0, 212, 255, 0.2);
+    }
+    
+    .status-badge {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.5rem 0.75rem;
+        border-radius: 8px;
+        background: rgba(16, 185, 129, 0.1);
+        border: 1px solid rgba(16, 185, 129, 0.2);
+        color: #10B981;
+        font-size: 0.85rem;
+        font-weight: 500;
+    }
 </style>
 """, unsafe_allow_html=True)
 
 # ─────────────────────────────────────────────
-# Main header
+# Header Hero Section
 # ─────────────────────────────────────────────
-st.markdown('<div class="main-header">💰 FinAgent AI</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-header">6-Agent Stock Market Analyzer powered by Groq LLM</div>', unsafe_allow_html=True)
+st.markdown("""
+<div class="hero-container">
+    <div class="hero-title">💰 FinAgent AI</div>
+    <div class="hero-subtitle">
+        Autonomous 6-Agent Stock Market Intelligence & Portfolio Optimization
+    </div>
+</div>
+""", unsafe_allow_html=True)
 
 # ─────────────────────────────────────────────
 # Sidebar
 # ─────────────────────────────────────────────
 with st.sidebar:
-    st.image("https://img.icons8.com/fluency/96/stock-market.png", width=80)
-    st.title("FinAgent AI")
+    st.image("https://img.icons8.com/fluency/96/stock-market.png", width=70)
+    st.markdown("### 🤖 FinAgent AI")
+    st.caption("Powered by LangGraph & Groq LLM")
+    
     st.markdown("---")
-    st.markdown("### How It Works")
-    st.markdown("""
-    1. Enter stock tickers
-    2. Click Analyze
-    3. Get AI-powered insights!
-
-    **6 Specialized Agents:**
-    - Supervisor
-    - Market Researcher
-    - News Analyzer
-    - Portfolio Optimizer
-    - Risk Assessor
-    - Report Generator
-    """)
-    st.markdown("---")
-    st.markdown("### Example Tickers")
-    st.code("AAPL, TSLA, GOOGL, MSFT, AMZN")
+    st.markdown("#### ⚡ 6-Agent Pipeline")
+    agents = [
+        ("🎯 Supervisor", "Workflow coordinator"),
+        ("📊 Market Researcher", "Live financial data"),
+        ("📰 News Analyzer", "Tavily web sentiment"),
+        ("💼 Portfolio Optimizer", "Weight allocation"),
+        ("⚠️ Risk Assessor", "Multi-factor risk score"),
+        ("📄 Report Generator", "Synthesis & reporting")
+    ]
+    for name, desc in agents:
+        st.markdown(f"**{name}**  \n<span style='font-size:0.8rem;color:#94A3B8'>{desc}</span>", unsafe_allow_html=True)
 
     st.markdown("---")
+    st.markdown("#### 💡 Quick Ticker Presets")
+    col_p1, col_p2 = st.columns(2)
+    with col_p1:
+        if st.button("Tech Giants", use_container_width=True):
+            st.session_state["preset_input"] = "AAPL, MSFT, GOOGL, NVDA"
+    with col_p2:
+        if st.button("EV & Energy", use_container_width=True):
+            st.session_state["preset_input"] = "TSLA, RIVN, ENPH, NEE"
 
-    # Manual wake up button in sidebar for users if backend feels slow
-    st.markdown("### Backend Status")
-    if st.button("🔄 Wake Up Backend", use_container_width=True):
-        with st.spinner("Waking up backend... please wait up to 30 seconds..."):
+    st.markdown("---")
+    st.markdown("#### 🌐 Backend Gateway")
+    st.caption(f"Endpoint: `{API_URL}`")
+    
+    if st.button("🔄 Check Backend Health", use_container_width=True):
+        with st.spinner("Connecting to backend..."):
             try:
-                r = requests.get(f"{API_URL}/health", timeout=60)
+                r = requests.get(f"{API_URL}/health", timeout=30)
                 if r.status_code == 200:
-                    st.success("✅ Backend is ready!")
+                    st.success("🟢 Backend is online & responsive!")
                 else:
-                    st.warning("Backend responded but may not be fully ready.")
-            except Exception:
-                st.error("Backend is still waking up. Wait 10 more seconds and try Analyze.")
+                    st.warning(f"🟡 Backend returned status {r.status_code}")
+            except Exception as e:
+                st.error("🔴 Backend is waking up. Please allow ~20-30s on free tiers.")
 
 # ─────────────────────────────────────────────
-# Stock input section
+# Input Controls
 # ─────────────────────────────────────────────
-st.markdown("### Enter Stocks To Analyze")
+default_stocks = st.session_state.get("preset_input", "AAPL, MSFT, NVDA")
 
-col1, col2 = st.columns([3, 1])
+st.markdown("##### 🔍 Select Stocks to Analyze")
+col_input, col_action = st.columns([3.5, 1])
 
-with col1:
+with col_input:
     stocks_input = st.text_input(
-        "Stock Tickers (comma separated)",
-        placeholder="e.g. AAPL, TSLA, GOOGL",
+        "Enter Stock Tickers (comma separated)",
+        value=default_stocks,
+        placeholder="e.g. AAPL, TSLA, GOOGL, MSFT, NVDA",
         label_visibility="collapsed"
     )
 
-with col2:
-    analyze_btn = st.button("Analyze", type="primary", use_container_width=True)
+with col_action:
+    analyze_btn = st.button("🚀 Analyze Stocks", type="primary", use_container_width=True)
 
 query = st.text_input(
-    "Analysis Query (optional)",
-    placeholder="e.g. Which stock is best for long term investment?",
-    value="Provide comprehensive stock analysis and investment recommendations"
+    "🎯 Custom Analysis Query / Goal (Optional)",
+    placeholder="e.g. Which stock is best for a 3-year growth portfolio?",
+    value="Provide comprehensive multi-factor stock analysis, portfolio allocation, and risk breakdown."
 )
 
 # ─────────────────────────────────────────────
-# Analysis logic — runs when Analyze is clicked
+# Execution & Results
 # ─────────────────────────────────────────────
-if analyze_btn and stocks_input:
-    # Clean and uppercase all tickers
-    stocks = [s.strip().upper() for s in stocks_input.split(",") if s.strip()]
+if analyze_btn:
+    raw_tickers = [s.strip().upper() for s in stocks_input.split(",") if s.strip()]
 
-    if not stocks:
-        st.error("Please enter at least one stock ticker!")
+    if not raw_tickers:
+        st.warning("⚠️ Please provide at least one valid stock ticker (e.g., AAPL).")
     else:
-        with st.spinner(f"Analyzing {', '.join(stocks)} with 6 AI agents..."):
+        with st.status(f"🤖 Orchestrating 6 AI Agents for {', '.join(raw_tickers)}...", expanded=True) as status_box:
+            st.write("🎯 **Supervisor**: Initiating multi-agent graph...")
             try:
                 response = requests.post(
                     f"{API_URL}/analyze",
-                    json={"query": query, "stocks": stocks},
+                    json={"query": query, "stocks": raw_tickers},
                     timeout=120
                 )
 
                 if response.status_code == 200:
                     data = response.json()
-                    st.success("Analysis Complete!")
-
-                    # Extract data sections from API response
+                    status_box.update(label="✅ Analysis completed successfully!", state="complete", expanded=False)
+                    
                     market_data = data.get("market_data", {})
                     portfolio   = data.get("portfolio_allocation", {})
                     risk        = data.get("risk_assessment", {})
+                    report      = data.get("report", "")
+                    messages    = data.get("messages", [])
 
-                    # ── Stock Overview Cards ──
-                    st.markdown("---")
-                    st.markdown("## Stock Overview")
-                    cols = st.columns(len(stocks))
+                    # ── 1. Stock Overview Grid ──
+                    st.markdown("### 📊 Market Snapshot")
+                    cols = st.columns(len(raw_tickers))
 
-                    for i, ticker in enumerate(stocks):
-                        stock_info = market_data.get(ticker, {})
-                        if stock_info and "error" not in stock_info:
-                            change = stock_info.get("change_percent", 0)
-                            color  = "positive" if change >= 0 else "negative"
-                            arrow  = "▲" if change >= 0 else "▼"
-                            with cols[i]:
+                    for i, ticker in enumerate(raw_tickers):
+                        info = market_data.get(ticker, {})
+                        with cols[i]:
+                            if info and "error" not in info:
+                                change = info.get("change_percent", 0.0)
+                                is_pos = change >= 0
+                                color_cls = "positive" if is_pos else "negative"
+                                arrow = "▲" if is_pos else "▼"
+                                price = info.get("current_price", "N/A")
+                                company = info.get("company_name", ticker)
+                                sector = info.get("sector", "N/A")
+
                                 st.markdown(f"""
                                 <div class="metric-card">
-                                    <h3>{ticker}</h3>
-                                    <h2></h2>
-                                    <p class="{color}">{arrow} {change}%</p>
-                                    <p>Sector: {stock_info.get('sector', 'N/A')}</p>
+                                    <p class="metric-ticker">{ticker}</p>
+                                    <p class="metric-company" title="{company}">{company}</p>
+                                    <div class="metric-price">${price}</div>
+                                    <span class="{color_cls}">{arrow} {change}% (1M)</span>
+                                    <div style="font-size: 0.75rem; color: #94A3B8; margin-top: 0.5rem;">
+                                        Sector: <b>{sector}</b>
+                                    </div>
+                                </div>
+                                """, unsafe_allow_html=True)
+                            else:
+                                st.markdown(f"""
+                                <div class="metric-card">
+                                    <p class="metric-ticker">{ticker}</p>
+                                    <p style="color: #EF4444; font-size: 0.85rem;">Data unavailable</p>
                                 </div>
                                 """, unsafe_allow_html=True)
 
-                    # ── Portfolio + Risk Section ──
                     st.markdown("---")
-                    col_left, col_right = st.columns(2)
 
-                    with col_left:
-                        st.markdown("### Portfolio Allocation")
-                        allocations = portfolio.get("allocations", {})
-                        if allocations:
-                            fig = px.pie(
-                                values=list(allocations.values()),
-                                names=list(allocations.keys()),
-                                title="Recommended Portfolio",
-                                template="plotly_dark"
+                    # ── 2. Portfolio Allocation & Risk Assessment ──
+                    tab1, tab2, tab3 = st.tabs(["💼 Portfolio & Risk", "📄 Executive Report", "🤖 Agent Logs"])
+
+                    with tab1:
+                        c_alloc, c_risk = st.columns(2)
+                        
+                        with c_alloc:
+                            st.markdown("#### 🎯 AI Portfolio Allocation")
+                            allocations = portfolio.get("allocations", {})
+                            if allocations:
+                                fig = px.pie(
+                                    values=list(allocations.values()),
+                                    names=list(allocations.keys()),
+                                    hole=0.45,
+                                    template="plotly_dark",
+                                    color_discrete_sequence=px.colors.qualitative.Prism
+                                )
+                                fig.update_layout(
+                                    margin=dict(t=20, b=20, l=20, r=20),
+                                    paper_bgcolor="rgba(0,0,0,0)",
+                                    plot_bgcolor="rgba(0,0,0,0)",
+                                    font=dict(family="Plus Jakarta Sans", size=13)
+                                )
+                                st.plotly_chart(fig, use_container_width=True)
+                                st.success(f"**Strategy**: {portfolio.get('strategy', 'Balanced asset allocation')}")
+                            else:
+                                st.info("No allocation data returned.")
+
+                        with c_risk:
+                            st.markdown("#### ⚠️ Multi-Factor Risk Assessment")
+                            risk_scores = risk.get("risk_scores", {})
+                            overall = str(risk.get("overall_risk", "medium")).lower()
+                            overall_badge = "🟢 LOW" if overall == "low" else "🟠 MEDIUM" if overall == "medium" else "🔴 HIGH"
+                            
+                            st.markdown(f"**Overall Portfolio Risk Level:** {overall_badge}")
+                            if risk.get("recommendation"):
+                                st.caption(f"_{risk.get('recommendation')}_")
+                            
+                            st.markdown("<div style='margin-top: 1rem;'></div>", unsafe_allow_html=True)
+                            for ticker, rinfo in risk_scores.items():
+                                score = rinfo.get("score", 5)
+                                level = rinfo.get("level", "medium").lower()
+                                col = "green" if level == "low" else "orange" if level == "medium" else "red"
+                                
+                                st.markdown(f"**{ticker}** — Risk: :{col}[{level.upper()}] ({score}/10)")
+                                st.progress(min(max(score / 10.0, 0.0), 1.0))
+                                if rinfo.get("factors"):
+                                    st.caption(f"Factors: {rinfo.get('factors')}")
+
+                    with tab2:
+                        st.markdown("#### 📄 Detailed Investment Report")
+                        if report:
+                            st.markdown(report)
+                            st.download_button(
+                                label="📥 Download Full Report (Markdown)",
+                                data=report,
+                                file_name=f"finagent_report_{raw_tickers[0]}.md",
+                                mime="text/markdown",
+                                use_container_width=True
                             )
-                            st.plotly_chart(fig, use_container_width=True)
-                            st.info(f"Strategy: {portfolio.get('strategy', 'N/A')}")
+                        else:
+                            st.info("Report content is being compiled.")
 
-                    with col_right:
-                        st.markdown("### Risk Assessment")
-                        risk_scores = risk.get("risk_scores", {})
-                        if risk_scores:
-                            for ticker, risk_info in risk_scores.items():
-                                level = risk_info.get("level", "medium")
-                                score = risk_info.get("score", 5)
-                                # Color code risk level
-                                color = "green" if level == "low" else "orange" if level == "medium" else "red"
-                                st.markdown(f"**{ticker}** — Risk: :{color}[{level.upper()}] ({score}/10)")
-                                st.progress(score / 10)
-                                st.caption(risk_info.get("factors", ""))
-
-                        overall = risk.get("overall_risk", "medium")
-                        st.markdown(f"**Overall Risk: {overall.upper()}**")
-                        st.markdown(f"*{risk.get('recommendation', '')}*")
-
-                    # ── Full Report ──
-                    st.markdown("---")
-                    st.markdown("### Full Investment Report")
-                    report = data.get("report", "")
-                    if report:
-                        st.markdown(report)
-                        st.download_button(
-                            label="Download Report",
-                            data=report,
-                            file_name="finagent_report.md",
-                            mime="text/markdown"
-                        )
-
-                    # ── Agent Pipeline Log ──
-                    st.markdown("---")
-                    st.markdown("### Agent Pipeline Log")
-                    messages = data.get("messages", [])
-                    for msg in messages:
-                        st.text(msg)
+                    with tab3:
+                        st.markdown("#### 🤖 LangGraph Pipeline Message Log")
+                        for msg in messages:
+                            st.code(msg, language="text")
 
                 else:
-                    # Show actual API error message
-                    st.error(f"API Error: {response.text}")
+                    # Clean error extraction
+                    status_box.update(label="❌ Analysis failed", state="error")
+                    err_detail = response.text
+                    try:
+                        err_json = response.json()
+                        err_detail = err_json.get("detail", response.text)
+                    except Exception:
+                        pass
+                    
+                    st.error(f"**API Execution Error**: {err_detail}")
+                    
+                    if "model_not_found" in str(err_detail) or "404" in str(err_detail):
+                        st.warning("""
+                        **Model Configuration Notice**:
+                        The Groq model specified by the server is deprecated or unavailable.
+                        - The backend has now been updated with automatic fallback support (`openai/gpt-oss-120b`, `openai/gpt-oss-20b`, `qwen/qwen3.6-27b`).
+                        - If you are running on Render or HuggingFace Spaces, redeploy the latest backend code to resolve this issue permanently.
+                        """)
 
             except requests.exceptions.ConnectionError:
-                # Backend is sleeping on Render free tier — guide user clearly
-                st.error("⚠️ Backend is waking up (Render free tier sleeps after inactivity).")
-                st.info("👉 Click **Wake Up Backend** in the sidebar, wait 30 seconds, then click Analyze again.")
+                status_box.update(label="⚠️ Connection timeout", state="error")
+                st.error("⚠️ **Backend is offline or waking up** (Render free-tier instances spin down after inactivity).")
+                st.info("👉 Click **Check Backend Health** in the sidebar, wait 20 seconds, and try clicking **Analyze Stocks** again.")
 
             except requests.exceptions.Timeout:
-                # Request took too long — likely backend still starting up
-                st.error("⏱️ Request timed out. Backend may still be warming up.")
-                st.info("👉 Wait 30 seconds and try again. Use **Wake Up Backend** button in sidebar.")
+                status_box.update(label="⏱️ Request timed out", state="error")
+                st.error("⏱️ **Request timed out**. The multi-agent pipeline is processing deep market & news data.")
+                st.info("👉 Please retry in a few seconds.")
 
             except Exception as e:
-                # Catch any other unexpected errors
-                st.error(f"Unexpected error: {str(e)}")
-
-elif analyze_btn and not stocks_input:
-    st.warning("Please enter stock tickers first!")
+                status_box.update(label="❌ Unexpected error", state="error")
+                st.error(f"**Unexpected error:** {str(e)}")
 
 # ─────────────────────────────────────────────
 # Footer
 # ─────────────────────────────────────────────
+st.markdown("<div style='margin-top: 3rem;'></div>", unsafe_allow_html=True)
 st.markdown("---")
 st.markdown(
-    "<div style='text-align:center; color:#888'>FinAgent AI — Built with LangGraph + Groq + FastAPI + Streamlit</div>",
+    "<div style='text-align:center; color:#64748B; font-size:0.85rem; padding: 1rem 0;'>"
+    "FinAgent AI • Built with <b>LangGraph</b>, <b>Groq LLM</b>, <b>FastAPI</b> & <b>Streamlit</b> • Educational Purposes Only"
+    "</div>",
     unsafe_allow_html=True
 )

@@ -1,8 +1,10 @@
-﻿from langchain_groq import ChatGroq
+import json
+import re
 from core.state import AgentState
 from tools.news_tool import get_stock_news
-from config import GROQ_API_KEY, MODEL_NAME
-llm = ChatGroq(api_key=GROQ_API_KEY, model=MODEL_NAME)
+from config import safe_llm_invoke
+
+
 def news_analyzer_node(state: AgentState) -> AgentState:
     stocks = state.get("stocks", [])
     market_data = state.get("market_data", {})
@@ -21,15 +23,14 @@ def news_analyzer_node(state: AgentState) -> AgentState:
 {news_text[:500]}
 Respond with JSON only:
 {{"sentiment": "positive/negative/neutral", "score": 0.0-1.0, "summary": "one sentence"}}"""
-            response = llm.invoke(prompt)
             try:
-                import json, re
+                response = safe_llm_invoke(prompt)
                 json_match = re.search(r'\{.*\}', response.content, re.DOTALL)
                 if json_match:
                     sentiment_scores[ticker] = json.loads(json_match.group())
                 else:
                     sentiment_scores[ticker] = {"sentiment": "neutral", "score": 0.5, "summary": "No clear sentiment"}
-            except:
+            except Exception:
                 sentiment_scores[ticker] = {"sentiment": "neutral", "score": 0.5, "summary": "Analysis unavailable"}
         else:
             sentiment_scores[ticker] = {"sentiment": "neutral", "score": 0.5, "summary": "No news found"}
