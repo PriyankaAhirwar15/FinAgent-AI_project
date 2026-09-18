@@ -9,6 +9,7 @@ def portfolio_optimizer_node(state: AgentState) -> AgentState:
     market_data = state.get("market_data", {})
     sentiment = state.get("news_sentiment", {}).get("sentiment_scores", {})
     stock_summary = []
+
     for ticker in stocks:
         data = market_data.get(ticker, {})
         sent = sentiment.get(ticker, {})
@@ -18,29 +19,40 @@ def portfolio_optimizer_node(state: AgentState) -> AgentState:
             f"Sentiment={sent.get('sentiment', 'neutral')}, "
             f"PE={data.get('pe_ratio', 'N/A')}"
         )
+
     prompt = f"""You are a portfolio optimization expert.
 Stocks: {chr(10).join(stock_summary)}
 Create an optimal portfolio allocation that totals 100%.
 Respond with JSON only:
 {{"allocations": {{{", ".join([f'"{s}": percentage' for s in stocks])}}}, "strategy": "brief strategy explanation"}}
 Replace percentage with actual numbers that sum to 100."""
+
+    equal_split = round(100.0 / max(len(stocks), 1), 1)
+    result = {
+        "allocations": {s: equal_split for s in stocks},
+        "strategy": "Balanced diversification strategy"
+    }
+
     try:
         response = safe_llm_invoke(prompt)
         json_match = re.search(r'\{.*\}', response.content, re.DOTALL)
         if json_match:
-            result = json.loads(json_match.group())
-        else:
-            equal_split = round(100 / max(len(stocks), 1), 1)
-            result = {
-                "allocations": {s: equal_split for s in stocks},
-                "strategy": "Equal weight distribution"
-            }
+            parsed = json.loads(json_match.group())
+            if isinstance(parsed, dict) and "allocations" in parsed:
+                result["strategy"] = str(parsed.get("strategy", result["strategy"]))
+                clean_allocs = {}
+                for s in stocks:
+                    raw = parsed["allocations"].get(s) or parsed["allocations"].get(s.lower()) or parsed["allocations"].get(s.upper())
+                    try:
+                        if isinstance(raw, str):
+                            raw = raw.replace("%", "").strip()
+                        clean_allocs[s] = float(raw) if raw is not None else equal_split
+                    except Exception:
+                        clean_allocs[s] = equal_split
+                result["allocations"] = clean_allocs
     except Exception:
-        equal_split = round(100 / max(len(stocks), 1), 1)
-        result = {
-            "allocations": {s: equal_split for s in stocks},
-            "strategy": "Equal weight distribution"
-        }
+        pass
+
     return {
         "portfolio_allocation": result,
         "messages": [f"PortfolioOptimizer: Optimized allocation for {stocks}"],
